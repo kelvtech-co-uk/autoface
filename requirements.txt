@@ -11,3 +11,4 @@ typing-extensions
 zipp
 greenlet
 thread
+retina-face

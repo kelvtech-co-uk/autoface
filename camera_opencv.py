@@ -1,6 +1,7 @@
 import os
 import cv2
 from base_camera import BaseCamera
+#from retinaface import RetinaFace
 
 class Camera(BaseCamera):
     #video_source = 0
@@ -23,7 +24,8 @@ class Camera(BaseCamera):
         camera = cv2.VideoCapture(Camera.video_source)
         
         # Load the cascade
-        face_cascade = cv2.CascadeClassifier('haarcascade_frontalface_default.xml')
+        #face_cascade = cv2.CascadeClassifier('haarcascade_frontalface_default.xml')
+        face_cascade = cv2.CascadeClassifier('haarcascade_frontalface_alt.xml')
         
         if not camera.isOpened():
             raise RuntimeError('Could not start camera.')
@@ -31,9 +33,13 @@ class Camera(BaseCamera):
         while True:
             # read current frame
             _, img = camera.read()
+            
+            #faces = RetinaFace.detect_faces(img)
 
             gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
             faces = face_cascade.detectMultiScale(gray, 1.1, 4)
+            text = ','.join(str(v) for v in faces)
+            cv2.putText(img, text, (1, 15), cv2.FONT_HERSHEY_PLAIN, 1, (255, 0, 0))
             for (x, y, w, h) in faces:
                 cv2.rectangle(img, (x, y), (x+w, y+h), (255, 0, 0), 2)
 
