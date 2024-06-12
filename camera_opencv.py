@@ -2,7 +2,6 @@ import os
 import cv2
 from base_camera import BaseCamera
 
-
 class Camera(BaseCamera):
     #video_source = 0
     
@@ -14,9 +13,10 @@ class Camera(BaseCamera):
     #         Camera.set_video_source(os.environ['OPENCV_CAMERA_SOURCE'])
     #     super(Camera, self).__init__()
 
-    @staticmethod
-    def set_video_source(source):
-        Camera.video_source = source
+    # Not sure what the next 3 lines are for as I cant find 'source' anywhere
+    # @staticmethod
+    # def set_video_source(source):
+    #     Camera.video_source = source
 
     @staticmethod
     def frames():
@@ -31,6 +31,11 @@ class Camera(BaseCamera):
         while True:
             # read current frame
             _, img = camera.read()
+
+            gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+            faces = face_cascade.detectMultiScale(gray, 1.1, 4)
+            for (x, y, w, h) in faces:
+                cv2.rectangle(img, (x, y), (x+w, y+h), (255, 0, 0), 2)
 
             # encode as a jpeg image and return it
             yield cv2.imencode('.jpg', img)[1].tobytes()
