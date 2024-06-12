@@ -21,6 +21,10 @@ class Camera(BaseCamera):
     @staticmethod
     def frames():
         camera = cv2.VideoCapture(Camera.video_source)
+        
+        # Load the cascade
+        face_cascade = cv2.CascadeClassifier('haarcascade_frontalface_default.xml')
+        
         if not camera.isOpened():
             raise RuntimeError('Could not start camera.')
 
