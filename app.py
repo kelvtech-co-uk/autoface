@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 from importlib import import_module
 import os
-import camera_opencv as Camera
+from camera_opencv import Camera as Camera
 from flask import Flask, render_template, Response
 
 # # Check environment variable
@@ -9,9 +9,6 @@ from flask import Flask, render_template, Response
 #     Camera = import_module('camera_' + os.environ['CAMERA']).Camera
 # else:
 #     from camera import Camera
-
-# Bypass checking for environment variable and hardcode opencv
-#Camera = import_module('camera_opencv').Camera
 
 app = Flask(__name__, template_folder='.')
 
