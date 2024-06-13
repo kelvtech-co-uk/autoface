@@ -11,4 +11,5 @@ typing-extensions
 zipp
 greenlet
 thread
-retina-face
+uvicorn
+#retina-face
