@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 from importlib import import_module
 import os
+from camera_opencv import Camera as Camera
 from flask import Flask, render_template, Response
 
 # # Check environment variable
@@ -9,17 +10,12 @@ from flask import Flask, render_template, Response
 # else:
 #     from camera import Camera
 
-# Bypass checking for environment variable and hardcode opencv
-Camera = import_module('camera_opencv').Camera
-
 app = Flask(__name__, template_folder='.')
 
 @app.route('/')
 def index():
     """Video streaming home page."""
     return render_template('index.html')
-    #return Response(gen(Camera()),
-    #                mimetype='multipart/x-mixed-replace; boundary=frame')
 
 @app.route('/video_feed')
 def video_feed():
@@ -35,4 +31,4 @@ def gen(camera):
         yield b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n--frame\r\n'
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', threaded=True)
+    app.run(host='0.0.0.0', threaded=True, debug=False)
