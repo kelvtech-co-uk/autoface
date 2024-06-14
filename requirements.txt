@@ -1,13 +1,2 @@
-click
 Flask
-itsdangerous
-Jinja2
-MarkupSafe
-Werkzeug
-numpy
-opencv-python
-importlib-metadata
-typing-extensions
-zipp
-greenlet
-thread
+opencv_python
