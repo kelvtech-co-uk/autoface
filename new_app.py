@@ -7,7 +7,7 @@ face_cascade = cv2.CascadeClassifier('haarcascade_frontalface_alt.xml')
 video_source = "rtsp://192.168.1.99:8554/blackprostation"
 vs = cv2.VideoCapture(video_source)
 
-def genframes():    
+def genframes():
     while True:
         _, img = vs.read()
 
@@ -17,7 +17,7 @@ def genframes():
         cv2.putText(img, text, (1, 15), cv2.FONT_HERSHEY_PLAIN, 1, (255, 0, 0))
         for (x, y, w, h) in faces:
             cv2.rectangle(img, (x, y), (x+w, y+h), (255, 0, 0), 2)
-        
+       
         yield b'--frame\r\n' b'Content-Type: image/jpeg\r\n\r\n' + cv2.imencode('.jpg', img)[1].tobytes() + b'\r\n--frame\r\n'
 
 @app.route('/')
