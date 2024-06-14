@@ -1,7 +1,12 @@
 import numpy as np
 import cv2 as cv
 import requests
+import argparse
 from yunet import YuNet
+
+parser = argparse.ArgumentParser()
+parser.add_argument("--input", help='still or video')
+args = parser.parse_args()
 
 def visualize(image, results, box_color=(0, 255, 0), text_color=(0, 0, 255), fps=None):
     output = image.copy()
@@ -40,51 +45,58 @@ model = YuNet(modelPath='face_detection_yunet_2023mar.onnx',
 
 # If input is an image
 # if args.input is not None:
-snap_source = requests.get("http://192.168.1.99:1984/api/frame.jpeg?src=blackprostation", stream=True).raw
-image = np.asarray(bytearray(snap_source.read()), dtype="uint8")
-image = cv.imdecode(image, cv.IMREAD_COLOR)
-h, w, _ = image.shape
+if args.input is None or args.input=="still":
 
-# Inference
-model.setInputSize([w, h])
-results = model.infer(image)
+    snap_source = requests.get("http://192.168.1.99:1984/api/frame.jpeg?src=blackprostation", stream=True).raw
+    image = np.asarray(bytearray(snap_source.read()), dtype="uint8")
+    image = cv.imdecode(image, cv.IMREAD_COLOR)
+    h, w, _ = image.shape
 
-# Print results
-print('{} faces detected.'.format(results.shape[0]))
-for idx, det in enumerate(results):
-    print('{}: {:.0f} {:.0f} {:.0f} {:.0f} {:.0f} {:.0f} {:.0f} {:.0f} {:.0f} {:.0f} {:.0f} {:.0f} {:.0f} {:.0f}'.format(
-        idx, *det[:-1])
-    )
+    # Inference
+    model.setInputSize([w, h])
+    results = model.infer(image)
 
-# Draw results on the input image
-image = visualize(image, results)
+    # Print results
+    print('{} faces detected.'.format(results.shape[0]))
+    for idx, det in enumerate(results):
+        print('{}: {:.0f} {:.0f} {:.0f} {:.0f} {:.0f} {:.0f} {:.0f} {:.0f} {:.0f} {:.0f} {:.0f} {:.0f} {:.0f} {:.0f}'.format(
+            idx, *det[:-1])
+        )
 
-# Save results if save is true
-cv.imwrite('result.jpg', image)
+    # Draw results on the input image
+    image = visualize(image, results)
 
-    # else: # Omit input to call default camera
-    #     deviceId = 0
-    #     cap = cv.VideoCapture(deviceId)
-    #     w = int(cap.get(cv.CAP_PROP_FRAME_WIDTH))
-    #     h = int(cap.get(cv.CAP_PROP_FRAME_HEIGHT))
-    #     model.setInputSize([w, h])
+    # Save results if save is true
+    cv.imwrite('result.jpg', image)
 
-    #     tm = cv.TickMeter()
-    #     while cv.waitKey(1) < 0:
-    #         hasFrame, frame = cap.read()
-    #         if not hasFrame:
-    #             print('No frames grabbed!')
-    #             break
+elif args.input == "video":
+        video_source = "rtsp://192.168.1.99:8554/blackprostation"
+        cap = cv.VideoCapture(video_source)
+        w = int(cap.get(cv.CAP_PROP_FRAME_WIDTH))
+        h = int(cap.get(cv.CAP_PROP_FRAME_HEIGHT))
+        model.setInputSize([w, h])
+        output = cv.VideoWriter('result.mp4', cv.VideoWriter_fourcc(*'mp4v'), 25, (w, h), True)
+        tm = cv.TickMeter()
+        try:
+            while True:
+                hasFrame, frame = cap.read()
+                if not hasFrame:
+                    print('No frames grabbed!')
+                    break
 
-    #         # Inference
-    #         tm.start()
-    #         results = model.infer(frame) # results is a tuple
-    #         tm.stop()
+                # Inference
+                tm.start()
+                results = model.infer(frame) # results is a tuple
+                tm.stop()
 
-    #         # Draw results on the input image
-    #         frame = visualize(frame, results, fps=tm.getFPS())
+                # Draw results on the input image
+                frame = visualize(frame, results, fps=tm.getFPS())
 
-    #         # Visualize results in a new Window
-    #         cv.imshow('YuNet Demo', frame)
-
-    #         tm.reset()
+                output.write(frame)
+                 
+                tm.reset()
+        except KeyboardInterrupt:
+            pass
+        
+        # Print results
+        print(results)
