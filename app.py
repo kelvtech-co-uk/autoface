@@ -70,33 +70,33 @@ if args.input is None or args.input=="still":
     cv.imwrite('result.jpg', image)
 
 elif args.input == "video":
-        video_source = "rtsp://192.168.1.99:8554/blackprostation"
-        cap = cv.VideoCapture(video_source)
-        w = int(cap.get(cv.CAP_PROP_FRAME_WIDTH))
-        h = int(cap.get(cv.CAP_PROP_FRAME_HEIGHT))
-        model.setInputSize([w, h])
-        output = cv.VideoWriter('result.mp4', cv.VideoWriter_fourcc(*'mp4v'), 25, (w, h), True)
-        tm = cv.TickMeter()
-        try:
-            while True:
-                hasFrame, frame = cap.read()
-                if not hasFrame:
-                    print('No frames grabbed!')
-                    break
+    video_source = "rtsp://192.168.1.99:8554/blackprostation"
+    cap = cv.VideoCapture(video_source)
+    w = int(cap.get(cv.CAP_PROP_FRAME_WIDTH))
+    h = int(cap.get(cv.CAP_PROP_FRAME_HEIGHT))
+    model.setInputSize([w, h])
+    output = cv.VideoWriter('result.mp4', cv.VideoWriter_fourcc(*'mp4v'), 25, (w, h), True)
+    tm = cv.TickMeter()
+    try:
+        while True:
+            hasFrame, frame = cap.read()
+            if not hasFrame:
+                print('No frames grabbed!')
+                break
 
-                # Inference
-                tm.start()
-                results = model.infer(frame) # results is a tuple
-                tm.stop()
+            # Inference
+            tm.start()
+            results = model.infer(frame) # results is a tuple
+            tm.stop()
 
-                # Draw results on the input image
-                frame = visualize(frame, results, fps=tm.getFPS())
+            # Draw results on the input image
+            frame = visualize(frame, results, fps=tm.getFPS())
 
-                output.write(frame)
-                 
-                tm.reset()
-        except KeyboardInterrupt:
-            pass
-        
-        # Print results
-        print(results)
+            output.write(frame)
+                
+            tm.reset()
+    except KeyboardInterrupt:
+        pass
+    
+    # Print results
+    print(results)
