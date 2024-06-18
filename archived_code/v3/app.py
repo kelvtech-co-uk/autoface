@@ -55,6 +55,8 @@ if args.input is None or args.input=="still":
     results = model.infer(image)
 
     # Print results
+    inference_time = infer_end - infer_start
+    
     print('{} faces detected.'.format(results.shape[0]))
     for idx, det in enumerate(results):
         print('{}: {:.0f} {:.0f} {:.0f} {:.0f} {:.0f} {:.0f} {:.0f} {:.0f} {:.0f} {:.0f} {:.0f} {:.0f} {:.0f} {:.0f}'.format(
