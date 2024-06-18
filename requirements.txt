@@ -1,2 +1,4 @@
-Flask
+numpy 
 opencv-python-headless
+requests
+argparse
