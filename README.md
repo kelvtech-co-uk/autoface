@@ -25,6 +25,6 @@ I'm very much learning and have little experience with opencv, python & coding i
 ### Credits (great projects, code and general inspiration)
 * https://github.com/AlexxIT/go2rtc
 * https://github.com/miguelgrinberg/flask-video-streaming
-* https://github.com/pornpasok/opencv-stream-video-to-web/blob/main/webstreaming.py
+* https://github.com/pornpasok/opencv-stream-video-to-web
 * https://github.com/opencv/opencv_zoo/tree/main/models/face_detection_yunet
 * https://github.com/opencv/opencv_zoo/tree/main/models/face_recognition_sface
