@@ -9,7 +9,7 @@ Real-time camera monitoring, face detection and recognition inside a docker cont
 
 ### To Do
 The ever chaning goal posts!
-- [x] Implement sface recognition :white_check_mark:
+- [x] Implement sface recognition :beer:
 - [ ] Add more recognition visualisation data to the output video
 - [ ] Optimise resource impacts ensuring OpenCL usage.  Review OpenVINO for any tangible gain.
 - [ ] Parse detection and recognition outputs into more human readable text
