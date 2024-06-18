@@ -43,8 +43,6 @@ model = YuNet(modelPath='face_detection_yunet_2023mar.onnx',
                 backendId=cv.dnn.DNN_BACKEND_OPENCV,
                 targetId=cv.dnn.DNN_TARGET_CPU)
 
-# If input is an image
-# if args.input is not None:
 if args.input is None or args.input=="still":
 
     snap_source = requests.get("http://192.168.1.99:1984/api/frame.jpeg?src=blackprostation", stream=True).raw
@@ -57,6 +55,8 @@ if args.input is None or args.input=="still":
     results = model.infer(image)
 
     # Print results
+    inference_time = infer_end - infer_start
+    
     print('{} faces detected.'.format(results.shape[0]))
     for idx, det in enumerate(results):
         print('{}: {:.0f} {:.0f} {:.0f} {:.0f} {:.0f} {:.0f} {:.0f} {:.0f} {:.0f} {:.0f} {:.0f} {:.0f} {:.0f} {:.0f}'.format(
@@ -98,5 +98,6 @@ elif args.input == "video":
     except KeyboardInterrupt:
         pass
     
+    output.release()
     # Print results
-    print(results)
+    print("\n", results)
