@@ -3,12 +3,16 @@ import cv2 as cv
 import requests
 # import argparse
 import datetime
+import sys
 from yunet import YuNet
 from sface import SFace
 
 # parser = argparse.ArgumentParser()
 # parser.add_argument("--input", help='still or video')
 # args = parser.parse_args()
+
+# Ensure OpenCL is used
+cv.ocl.setUseOpenCL(True)
 
 def visualize(target_image, faces1, query_image, faces2, matches, scores, target_size=[512, 512]): # target_size: (h, w)
     out1 = target_image.copy()
@@ -60,8 +64,8 @@ def visualize(target_image, faces1, query_image, faces2, matches, scores, target
         text_color = matched_box_color if match else mismatched_box_color
         cv.putText(padded_out2, "{:.2f}".format(score), (x + left, y + top - 5), cv.FONT_HERSHEY_DUPLEX, 0.4, text_color)
 
-    return np.concatenate([padded_out1, padded_out2], axis=1)
-
+    #return np.concatenate([padded_out1, padded_out2], axis=1)
+    return padded_out2
 # Instantiate YuNet & SFace
 detector = YuNet(modelPath='face_detection_yunet_2023mar.onnx',
                 inputSize=[320, 320], 
@@ -77,12 +81,14 @@ recognizer = SFace(modelPath='face_recognition_sface_2021dec.onnx',
                     targetId=cv.dnn.DNN_TARGET_CPU)
 
 # Load target image
-target_image = cv.imread("target.jpeg")
+target_image = cv.imread("target2.jpeg")
+target_image = cv.resize(target_image, (180,320), interpolation=cv.INTER_LINEAR)
 
 # Detect faces in target
 detector.setInputSize([target_image.shape[1], target_image.shape[0]])
 faces1 = detector.infer(target_image)
-assert faces1.shape[0] > 0, 'Cannot find a face in {}'.format(target_image)
+if faces1.shape[0] == 0:
+    sys.exit("No faces deteceted in query source")
 
 # snap_source = requests.get("http://192.168.1.99:1984/api/frame.jpeg?src=blackprostation", stream=True).raw
 # query_image = np.asarray(bytearray(snap_source.read()), dtype="uint8")
@@ -93,7 +99,7 @@ query_source_url = "rtsp://192.168.1.99:8554/blackprostation"
 query_source = cv.VideoCapture(query_source_url)
 # w = int(query_source.get(cv.CAP_PROP_FRAME_WIDTH))
 # h = int(query_source.get(cv.CAP_PROP_FRAME_HEIGHT))
-output = cv.VideoWriter('/mnt/cache/processing/result.mp4', cv.VideoWriter_fourcc(*'mp4v'), 25, (1024, 512), True)
+output = cv.VideoWriter('/mnt/cache/processing/result.mp4', cv.VideoWriter_fourcc(*'mp4v'), 25, (512, 512), True)
 try:
     while True:
         # read a frame from the query video source
@@ -104,9 +110,9 @@ try:
         faces2 = detector.infer(query_image)
         
         # If no faces detected just move to the next frame and retry
-        if faces2.shape[0] == 0:
-            print('No faces deteceted in query source')
-            continue
+        # if faces2.shape[0] == 0:
+        #     print('No faces deteceted in query source')
+        #     continue
         
         # Match
         scores = []
@@ -119,7 +125,7 @@ try:
         # Draw results
         image = visualize(target_image, faces1, query_image, faces2, matches, scores)
         
-        output.write(image)
+        #output.write(image)
         
 except KeyboardInterrupt:
     pass
