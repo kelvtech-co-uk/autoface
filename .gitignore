@@ -1,5 +1,6 @@
-# autoface output
+# autoface assets
 result.*
+target.*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
