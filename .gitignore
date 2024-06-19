@@ -1,3 +1,9 @@
+# VS Code, Windows-virtualenv & PIP assets
+Lib/
+Scripts/
+pyvenv.cfg
+*.code-workspace
+
 # autoface assets
 result.*
 target*.*
