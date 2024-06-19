@@ -5,7 +5,7 @@ Real-time camera monitoring, face detection and recognition inside a docker cont
 * **archived_code/v1:**   Hack of Miguel Grinberg's and PORNPASOK SOOKYEN's code pulling frames off my webcam using go2rtc and streaming to a browser session using Flask
 * **archived_code/v2:**   Face detection using Haar cascades from OpenCV
 * **archived_code/v3:**   Face detection using YuNet with options to pass in either a still image or a video with a matching output including detection visualisation
-* **current branch:**     Face detection and recognition using YuNet and SFace with video output including ~~basic~~ recognition visualisation. Code also runs either in Windows with windowed real-time output or in a docker container with saved .mp4 video output.
+* **sface_recognition branch:**     Face detection and recognition using YuNet and SFace with video output including ~~basic~~ recognition visualisation. Code also runs either in Windows with windowed real-time output or in a docker container with saved .mp4 video output.
 
 ### To Do
 The ever chaning goal posts!
