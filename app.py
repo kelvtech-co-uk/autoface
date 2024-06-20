@@ -1,16 +1,16 @@
+
 import numpy as np
 import cv2 as cv
-# import argparse
 import sys
 import platform
 import datetime
 import time
-from yunet import YuNet
-from sface import SFace
 
-# parser = argparse.ArgumentParser()
-# parser.add_argument("--input", help='still or video')
-# args = parser.parse_args()
+# Update the path variable to include addition module sub-directories
+sys.path.append("yunet")
+from yunet import YuNet
+sys.path.append("sface")
+from sface import SFace
 
 # Ensure OpenCL is used
 cv.ocl.setUseOpenCL(True)
@@ -70,7 +70,7 @@ def visualize(query_image, query_faces, matches, scores, fps, detection_time, in
     return query_image
 
 # Instantiate YuNet & SFace
-detector = YuNet(modelPath='face_detection_yunet_2023mar.onnx',
+detector = YuNet(modelPath='yunet/face_detection_yunet_2023mar.onnx',
                 inputSize=[960, 720], 
                 confThreshold=0.9,    #Usage: Set the minimum needed confidence for the model to identify a face. Smaller values may result in faster detection, but will limit accuracy.
                 nmsThreshold=0.3,     #Usage: Suppress bounding boxes of iou >= nms_threshold.
@@ -78,14 +78,15 @@ detector = YuNet(modelPath='face_detection_yunet_2023mar.onnx',
                 backendId=cv.dnn.DNN_BACKEND_OPENCV,
                 targetId=cv.dnn.DNN_TARGET_CPU)
 
-recognizer = SFace(modelPath='face_recognition_sface_2021dec.onnx',
+recognizer = SFace(modelPath='sface/face_recognition_sface_2021dec.onnx',
                     disType=0,      #Usage: Distance type. \'0\': cosine, \'1\': norm_l1. Defaults to \'0\'
                     backendId=cv.dnn.DNN_BACKEND_OPENCV,
                     targetId=cv.dnn.DNN_TARGET_CPU)
 
 # Load target image
 target_image = cv.imread("target2.jpeg")
-target_image = cv.resize(target_image, (180,320), interpolation=cv.INTER_LINEAR)
+print('target_image w & h:', target_image.shape[1], target_image.shape[0])
+target_image = cv.resize(target_image, (480,640), interpolation=cv.INTER_LINEAR)
 
 # Detect faces in target
 detector.setInputSize([target_image.shape[1], target_image.shape[0]])

@@ -11,6 +11,8 @@ Real-time camera monitoring, face detection and recognition inside a docker cont
 The ever chaning goal posts!
 - [x] Implement sface recognition :beer:
 - [x] Add more recognition visualisation data to the output video :beers:
+- [ ] Implement checks and corrections to target image size to optimise for YuNet detection model
+- [ ] Consider better way to integrate opencv_zoo repo to access YuNet and Sface dynamically rather than keeping static files seperately
 - [ ] Parse detection and recognition outputs into more human readable text
 - [ ] Implementing appropriate Threading
 - [ ] Implement Collections/Persons lookup in the recognition process
