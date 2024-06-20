@@ -1,5 +1,15 @@
-# autoface output
+# VS Code, Windows-virtualenv & PIP assets
+Lib/
+Scripts/
+pyvenv.cfg
+*.code-workspace
+
+# autoface assets
 result.*
+*target*.*
+event*.*
+opencl_*
+collations
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
