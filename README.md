@@ -34,12 +34,12 @@ My container host is an unraid server with a Intel Core i5-14500.  I have a USB 
 | 103w (+27w-c) | 1 face detected |
 | 119w (+43w-c) | 2 faces detected |
 
-**OPENCL**
+#### OPENCL
 Using the targetId=cv.dnn.DNN_TARGET_OPENCL for both detector and recogniser does successfully move workloads onto the GPU but testing on my container host showed the power draw was largely the same with OPENCL possibly drawing more overall by ~5 watts.  CPU utilisation however was clearly improved when using OPENCL.  On my Windows workbench (AMD w/ Nvidia GPU) whilst OPENCL functioned it was clearly not optimised as GPU utilisation reported near 100% via the Task Manager and the frame rate in the windowed output was 1-5 FPS.
 
-Lastly load and execution time of the programmed was different; measured on my container host it took 12.5 seconds for the output video to start to be written when using OPENCL vs. 2 seconds when using just CPU.  _UPDATE_ Enter the world of OpenCL Kernel tuning, setting an environment variable called OPENCV_OCL4DNN_CONFIG_PATH to a permanent directory and starting the container causes Opencl to start auto-tuning against my specific hardware.  The directory specificied in the environment variable gets populated with tuning configuration data.  Running the container post autotuning reduces the initial program load & execution time by 50% in my testing!
+Lastly load and execution time of the programmed was different; measured on my container host it took 12.5 seconds for the output video to start to be written when using OPENCL vs. 2 seconds when using just CPU.  
 
-
+**_UPDATE_** Enter the world of OpenCL Kernel tuning, setting an environment variable called OPENCV_OCL4DNN_CONFIG_PATH to a permanent directory and starting the container causes Opencl to start auto-tuning against my specific hardware.  The directory specificied in the environment variable gets populated with tuning configuration data.  Running the container post autotuning reduces the initial program load & execution time by 50% in my testing!
 
 ### Fair warning
 I'm very much learning and have little experience with opencv, python & coding in general.  Any advice e.g. "read up on this..." or "check this code/link out..." is welcomed!
