@@ -1,5 +1,5 @@
 # autoface
-Real-time camera monitoring, face detection and recognition inside a docker container using OpenCV.
+A self-hosted, quick, light weight and real-time camera monitoring application which includes face detection and recognition using OpenCV.
 
 ### Code Journey
 * **archived_code/v1:**   Hack of Miguel Grinberg's and PORNPASOK SOOKYEN's code pulling frames off my webcam using go2rtc and streaming to a browser session using Flask
@@ -11,12 +11,15 @@ Real-time camera monitoring, face detection and recognition inside a docker cont
 The ever chaning goal posts!
 - [x] Implement sface recognition :beer:
 - [x] Add more recognition visualisation data to the output video :beers:
-- [ ] Implement checks and corrections to target image size to optimise for YuNet detection model
+- [x] Implement checks and corrections to target image size to optimise for YuNet detection model
+- [x] Implement code to look up and filter target image files stored in a collation/person folder structure
+- [ ] Update the detection code to use the collation/person/target file list
+- [ ] Make code more readable with useful comments and by using functions and/or seperate .py files as needed
 - [ ] Consider better way to integrate opencv_zoo repo to access YuNet and Sface dynamically rather than keeping static files seperately
 - [ ] Parse detection and recognition outputs into more human readable text
 - [ ] Implementing appropriate Threading
-- [ ] Implement Collections/Persons lookup in the recognition process
-- [ ] Optimise resource impacts ensuring OpenCL usage.  Review OpenVINO for any tangible gain.
+- [ ] Review benefits case of pure OpenCL given early observations on gains/costs
+- [ ] Short validation tests and benefits case review of using the OpenVINO (cv.dnn.DNN_BACKEND_INFERENCE_ENGINE) backend with an appropriately prepared docker image
 - [ ] Implement API and/or MQTT wrapper considering integration with the Home Assistant and Node Red projects
 
 
@@ -31,6 +34,13 @@ My container host is an unraid server with a Intel Core i5-14500.  I have a USB 
 | 103w (+27w-c) | 1 face detected |
 | 119w (+43w-c) | 2 faces detected |
 
+**OPENCL**
+Using the targetId=cv.dnn.DNN_TARGET_OPENCL for both detector and recogniser does successfully move workloads onto the GPU but testing on my container host showed the power draw was largely the same with OPENCL possibly drawing more overall by ~5 watts.  CPU utilisation however was clearly improved when using OPENCL.  On my Windows workbench (AMD w/ Nvidia GPU) whilst OPENCL functioned it was clearly not optimised as GPU utilisation reported near 100% via the Task Manager and the frame rate in the windowed output was 1-5 FPS.
+
+Lastly load and execution time of the programmed was different; measured on my container host it took 12.5 seconds for the output video to start to be written when using OPENCL vs. 2 seconds when using just CPU.  _UPDATE_ Enter the world of OpenCL Kernel tuning, setting an environment variable called OPENCV_OCL4DNN_CONFIG_PATH to a permanent directory and starting the container causes Opencl to start auto-tuning against my specific hardware.  The directory specificied in the environment variable gets populated with tuning configuration data.  Running the container post autotuning reduces the initial program load & execution time by 50% in my testing!
+
+
+
 ### Fair warning
 I'm very much learning and have little experience with opencv, python & coding in general.  Any advice e.g. "read up on this..." or "check this code/link out..." is welcomed!
 
@@ -40,3 +50,4 @@ I'm very much learning and have little experience with opencv, python & coding i
 * https://github.com/pornpasok/opencv-stream-video-to-web
 * https://github.com/opencv/opencv_zoo/tree/main/models/face_detection_yunet
 * https://github.com/opencv/opencv_zoo/tree/main/models/face_recognition_sface
+* https://github.com/ShiqiYu/libfacedetection

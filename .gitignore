@@ -6,8 +6,10 @@ pyvenv.cfg
 
 # autoface assets
 result.*
-target*.*
+*target*.*
 event*.*
+opencl_*
+collations
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

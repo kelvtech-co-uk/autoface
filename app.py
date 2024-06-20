@@ -5,6 +5,8 @@ import sys
 import platform
 import datetime
 import time
+import os
+from PIL import Image, ExifTags
 
 # Update the path variable to include addition module sub-directories
 sys.path.append("yunet")
@@ -26,7 +28,15 @@ def get_os():
     
 print('Running in', get_os())
 
-def draw_text(query_image, text, pos=(0, 0), font=cv.FONT_HERSHEY_SIMPLEX, font_scale=0.5, text_color=(255, 255, 255), font_thickness=1, text_color_bg=(0, 0, 0), border=1):
+def draw_text(query_image, 
+              text, 
+              pos=(0, 0), 
+              font=cv.FONT_HERSHEY_SIMPLEX, 
+              font_scale=0.5, 
+              text_color=(255, 255, 255), 
+              font_thickness=1, 
+              text_color_bg=(0, 0, 0), 
+              border=1):
     x, y = pos
     text_size, _ = cv.getTextSize(text, font, font_scale, font_thickness)
     text_w, text_h = text_size
@@ -35,7 +45,13 @@ def draw_text(query_image, text, pos=(0, 0), font=cv.FONT_HERSHEY_SIMPLEX, font_
 
     return #text_size
 
-def visualize(query_image, query_faces, matches, scores, fps, detection_time, inference_time): # target_size: (h, w)
+def visualize(query_image, 
+              query_faces, 
+              matches, 
+              scores, 
+              fps, 
+              detection_time, 
+              inference_time):
     matched_box_color = (0, 255, 0)    # BGR
     mismatched_box_color = (0, 0, 255) # BGR
         
@@ -69,30 +85,111 @@ def visualize(query_image, query_faces, matches, scores, fps, detection_time, in
 
     return query_image
 
+def resize_image(input_path, 
+                 target_width):
+    original_image = Image.open(input_path)
+
+    # Check if the image has EXIF metadata
+    if hasattr(original_image, '_getexif'):
+        exif = original_image._getexif()
+        if exif:
+            for tag, label in ExifTags.TAGS.items():
+                if label == 'Orientation':
+                    orientation = tag
+                    break
+            if orientation in exif:
+                if exif[orientation] == 3:
+                    original_image = original_image.rotate(180, expand=True)
+                elif exif[orientation] == 6:
+                    original_image = original_image.rotate(270, expand=True)
+                elif exif[orientation] == 8:
+                    original_image = original_image.rotate(90, expand=True)
+    
+    aspect_ratio = original_image.width / original_image.height
+    target_height = int(target_width / aspect_ratio)
+
+    resized_image = original_image.resize((target_width, target_height), Image.LANCZOS)
+    resized_image.save(str("_"+input_path))
+
 # Instantiate YuNet & SFace
+backendId = cv.dnn.DNN_BACKEND_OPENCV
+#backendId = cv.dnn.DNN_BACKEND_INFERENCE_ENGINE
+targetId = cv.dnn.DNN_TARGET_CPU
+#targetId = cv.dnn.DNN_TARGET_OPENCL
 detector = YuNet(modelPath='yunet/face_detection_yunet_2023mar.onnx',
-                inputSize=[960, 720], 
+                inputSize=[320, 320], 
                 confThreshold=0.9,    #Usage: Set the minimum needed confidence for the model to identify a face. Smaller values may result in faster detection, but will limit accuracy.
                 nmsThreshold=0.3,     #Usage: Suppress bounding boxes of iou >= nms_threshold.
                 topK=5000,            #Usage: Keep top_k bounding boxes before NMS.
-                backendId=cv.dnn.DNN_BACKEND_OPENCV,
-                targetId=cv.dnn.DNN_TARGET_CPU)
+                backendId=backendId,
+                targetId=targetId)
 
 recognizer = SFace(modelPath='sface/face_recognition_sface_2021dec.onnx',
                     disType=0,      #Usage: Distance type. \'0\': cosine, \'1\': norm_l1. Defaults to \'0\'
-                    backendId=cv.dnn.DNN_BACKEND_OPENCV,
-                    targetId=cv.dnn.DNN_TARGET_CPU)
+                    backendId=backendId,
+                    targetId=targetId)
 
-# Load target image
-target_image = cv.imread("target2.jpeg")
-print('target_image w & h:', target_image.shape[1], target_image.shape[0])
-target_image = cv.resize(target_image, (480,640), interpolation=cv.INTER_LINEAR)
+collations = []
+members = []
+targets = []
+
+# Map the directories located in /app/collations into a list called collations
+for c in [c 
+          for c in os.listdir('collations') 
+          if os.path.isdir(os.path.join('collations', c))
+          ]:
+    collations.append('collations/' + c)
+
+# For each mapped directory in the list collations, map the subdirectories into a list called members
+for x in range(len(collations)):
+    directory = collations[x]
+    for m in [m 
+              for m in os.listdir(directory) 
+              if os.path.isdir(os.path.join(directory, m))
+              ]:
+        members.append(directory + "/" + m)
+
+# For each mapped member directory in the list members, map the files into a list called targets
+for x in range(len(members)):
+    contents = members[x]
+    if len([t 
+            for t in os.listdir(contents) 
+            if not t.startswith(".") and 
+            os.path.isfile(os.path.join(contents, t))
+            ]) > 1:
+        raise ValueError("More than 1 unfiltered target file found in target directory:", contents,)
+    for t in [t 
+              for t in os.listdir(contents) 
+              if not t.startswith(".") and 
+              os.path.isfile(os.path.join(contents, t))
+              ]:
+        targets.append(contents + "/" + t)    
+
+# Error if no target files are found
+if len(targets) == 0:
+    raise ValueError('No target files found, please ensure 1 unfiltered target file is placed into a collation/person folder')
+
+# print('Collations:', collations)
+# print('Members:', members)
+print('Target files located:', targets)
+
+# Load target image with basic pre-processing to enable detection
+target_file = '/collations/middletons/kelvin/targetd.jpeg'
+target_width = 500
+target_image = cv.imread(target_file)
+print('Pre (w & h):', target_file, target_image.shape[1], target_image.shape[0])
+if target_image.shape[1] > 640:
+    resize_image(target_file, target_width)
+    target_image = cv.imread(str("_"+target_file))
+    print('Post: (w & h):', target_image.shape[1], target_image.shape[0])
+else:
+    print('Original target file width within tolerance')
 
 # Detect faces in target
 detector.setInputSize([target_image.shape[1], target_image.shape[0]])
 target_face = detector.infer(target_image)
 if target_face.shape[0] == 0:
-    sys.exit("No faces deteceted in query source")
+    sys.exit("No faces deteceted in any target files")
 
 # Load query video source
 query_source_url = "rtsp://192.168.1.99:8554/blackprostation"
