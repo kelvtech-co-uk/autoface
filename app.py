@@ -26,7 +26,7 @@ def get_os():
     else:
         return "Unknown"
     
-print('Running in', get_os())
+print('Running in', get_os(),'\n')
 
 def draw_text(query_image, 
               text, 
@@ -49,15 +49,14 @@ def visualize(query_image,
               query_faces, 
               matches, 
               scores, 
-              fps, 
-              detection_time, 
+              fps,
               inference_time):
     matched_box_color = (0, 255, 0)    # BGR
     mismatched_box_color = (0, 0, 255) # BGR
         
     # Validate results
-    assert query_faces.shape[0] == len(matches), "number of query_faces needs to match matches"
-    assert len(matches) == len(scores), "number of matches needs to match number of scores"
+    #assert query_faces.shape[0] == len(matches), "number of query_faces needs to match matches"
+    #assert len(matches) == len(scores), "number of matches needs to match number of scores"
     
     draw_text(query_image, text=f"{datetime.datetime.now():%Y-%m-%d %H:%M:%S}", pos=(0, 30))
     #cv.putText(query_image,f"{datetime.datetime.now():%Y-%m-%d %H:%M:%S}", (0, 30), cv.FONT_HERSHEY_SIMPLEX, 0.4, text_color, 1)
@@ -65,11 +64,6 @@ def visualize(query_image,
     if fps is not None:
         draw_text(query_image, text=f"FPS: {fps:.0f}", pos=(0, 45))
         #cv.putText(query_image, 'FPS: {:.2f}'.format(fps), (0, 45), cv.FONT_HERSHEY_SIMPLEX, 0.4, text_color, 1)
-
-    # Only report detection time if there are faces found in the frame:
-    if query_faces.shape[0] > 0:
-        draw_text(query_image, text=f"Detection: {detection_time:.4f}ms", pos=(0, 60))
-        #cv.putText(query_image,f"Detection: {detection_time:.4f}ms", (0, 60), cv.FONT_HERSHEY_SIMPLEX, 0.4, text_color)    
 
     # Draw bbox
     for index, match in enumerate(matches):
@@ -85,13 +79,11 @@ def visualize(query_image,
 
     return query_image
 
-def resize_image(input_path, 
-                 target_width):
-    original_image = Image.open(input_path)
+def resize_image(target_image, target_width):
 
     # Check if the image has EXIF metadata
-    if hasattr(original_image, '_getexif'):
-        exif = original_image._getexif()
+    if hasattr(target_image, '_getexif'):
+        exif = target_image._getexif()
         if exif:
             for tag, label in ExifTags.TAGS.items():
                 if label == 'Orientation':
@@ -99,17 +91,18 @@ def resize_image(input_path,
                     break
             if orientation in exif:
                 if exif[orientation] == 3:
-                    original_image = original_image.rotate(180, expand=True)
+                    target_image = cv.rotate(target_image, cv.ROTATE_180)
                 elif exif[orientation] == 6:
-                    original_image = original_image.rotate(270, expand=True)
+                    target_image = cv.rotate(target_image, cv.ROTATE_90_CLOCKWISE)
                 elif exif[orientation] == 8:
-                    original_image = original_image.rotate(90, expand=True)
+                    target_image = cv.rotate(target_image, cv.ROTATE_90_COUNTERCLOCKWISE)
     
-    aspect_ratio = original_image.width / original_image.height
+    # Resize the image keeping the aspect ratio
+    original_height, original_width, _ = target_image.shape
+    aspect_ratio = original_width / original_height
     target_height = int(target_width / aspect_ratio)
-
-    resized_image = original_image.resize((target_width, target_height), Image.LANCZOS)
-    resized_image.save(str("_"+input_path))
+    
+    return cv.resize(target_image, (target_width, target_height), interpolation=cv.INTER_LANCZOS4)
 
 # Instantiate YuNet & SFace
 backendId = cv.dnn.DNN_BACKEND_OPENCV
@@ -129,73 +122,39 @@ recognizer = SFace(modelPath='sface/face_recognition_sface_2021dec.onnx',
                     backendId=backendId,
                     targetId=targetId)
 
+collations_root = 'collations'
 collations = []
 members = []
-targets = []
-
-# Map the directories located in /app/collations into a list called collations
-for c in [c 
-          for c in os.listdir('collations') 
-          if os.path.isdir(os.path.join('collations', c))
-          ]:
-    collations.append('collations/' + c)
-
-# For each mapped directory in the list collations, map the subdirectories into a list called members
-for x in range(len(collations)):
-    directory = collations[x]
-    for m in [m 
-              for m in os.listdir(directory) 
-              if os.path.isdir(os.path.join(directory, m))
-              ]:
-        members.append(directory + "/" + m)
-
-# For each mapped member directory in the list members, map the files into a list called targets
-for x in range(len(members)):
-    contents = members[x]
-    if len([t 
-            for t in os.listdir(contents) 
-            if not t.startswith(".") and 
-            os.path.isfile(os.path.join(contents, t))
-            ]) > 1:
-        raise ValueError("More than 1 unfiltered target file found in target directory:", contents,)
-    for t in [t 
-              for t in os.listdir(contents) 
-              if not t.startswith(".") and 
-              os.path.isfile(os.path.join(contents, t))
-              ]:
-        targets.append(contents + "/" + t)    
+targets = []    # Positions: 0=collation, 1=member, 2=file, 3=image data, 4=face data
+target_width = 500
+for collation in os.listdir(collations_root):   # Find the collation folders in the collation_root directory
+    if os.path.isdir(os.path.join(collations_root, collation)):     # Ignore anything thats not a directory
+        for member in os.listdir(os.path.join(collations_root, collation)):     # Find the member folders in each collation folder
+            if os.path.isdir(os.path.join(collations_root, collation, member)):     # Ignore anything thats not a directory
+                for file in os.listdir(os.path.join(collations_root, collation, member)):   # Find the files in the member folders by...
+                    if not file.startswith(".") and os.path.isfile(os.path.join(collations_root, collation, member, file)):     # ...ignoring anything prefixed with a "." or isn't a file
+                        targets.append([collation, member, file, None, None])   # Append the indivdual lists into the object target creating a nested list object with placeholder positions
+                        targets[-1][3] = cv.imread(os.path.join(collations_root, targets[-1][0], targets[-1][1], targets[-1][2]))   # Rebuild the file path from the list and read in the image
+                        if targets[-1][3].shape[1] > target_width:  # Check the width of the image is within tollerance
+                            targets[-1][3] = resize_image(targets[-1][3], target_width)     # If not resize the image in-situ
+                            print('Resized:', os.path.join(collations_root, targets[-1][0], targets[-1][1], targets[-1][2]))
+                        detector.setInputSize([targets[-1][3].shape[1], targets[-1][3].shape[0]]) # Setup the face detector
+                        face_test = detector.infer(targets[-1][3])  # Attempt to detect faces in the target image
+                        if face_test.shape[0] != 0:     # If there is a face...
+                            targets[-1][4] = face_test  # ...save it back into the nest list alongside the source data
 
 # Error if no target files are found
 if len(targets) == 0:
-    raise ValueError('No target files found, please ensure 1 unfiltered target file is placed into a collation/person folder')
+    raise Exception("No target files found. Please ensure one unfiltered target file is placed into a collation/person folder.")
 
-# print('Collations:', collations)
-# print('Members:', members)
-print('Target files located:', targets)
-
-# Load target image with basic pre-processing to enable detection
-target_file = '/collations/middletons/kelvin/targetd.jpeg'
-target_width = 500
-target_image = cv.imread(target_file)
-print('Pre (w & h):', target_file, target_image.shape[1], target_image.shape[0])
-if target_image.shape[1] > 640:
-    resize_image(target_file, target_width)
-    target_image = cv.imread(str("_"+target_file))
-    print('Post: (w & h):', target_image.shape[1], target_image.shape[0])
-else:
-    print('Original target file width within tolerance')
-
-# Detect faces in target
-detector.setInputSize([target_image.shape[1], target_image.shape[0]])
-target_face = detector.infer(target_image)
-if target_face.shape[0] == 0:
-    sys.exit("No faces deteceted in any target files")
+if targets[-1][4].shape[0] == 0:
+    raise Exception("No faces deteceted in any target files")
 
 # Load query video source
 query_source_url = "rtsp://192.168.1.99:8554/blackprostation"
 #query_source_url = "rtsps://192.168.1.1:7441/EOEohGh0eoXIWf28"
 #query_source_url = "event.mp4"
-
+sys.exit()
 query_source = cv.VideoCapture(query_source_url)
 query_source_width = int(query_source.get(cv.CAP_PROP_FRAME_WIDTH))
 query_source_height = int(query_source.get(cv.CAP_PROP_FRAME_HEIGHT))
@@ -207,7 +166,8 @@ elif get_os() == "Windows":
     output = cv.VideoWriter('result.mp4', cv.VideoWriter_fourcc(*'mp4v'), 25, (query_source_width, query_source_height), True)
 
 fps = cv.TickMeter()
-frame_skip = 2
+frame_skip = 10
+query_faces = []
 try:
     while True:
         # read a frame from the query video source
@@ -217,31 +177,38 @@ try:
             sys.exit("Unable to grab a frame from query_source")
 
         # Attempt to detect faces
-        det_start_time = time.time()
+        infer_start_time = time.time()
         detector.setInputSize([query_image.shape[1], query_image.shape[0]])
-        query_faces = detector.infer(query_image)
-        det_end_time = time.time()
-        
-        detection_time = det_end_time - det_start_time
+        if detector.infer(query_image).shape[0] != 0:
+            query_faces.append(detector.infer(query_image))
+            #print(query_faces[-1])
+        else:
+            #print('No query faces detected in frame')
+            continue
 
         # Match faces to target
         scores = []
         matches = []
-        infer_start_time = time.time()
-        for face in query_faces:
-            result = recognizer.match(target_image, target_face[0][:-1], query_image, face[:-1])
+        index = 0
+        for query_face in query_faces:
+            result = recognizer.match(target_images[0], target_faces[0][:-1], query_image, query_face)
             scores.append(result[0])
             matches.append(result[1])
         
-        infer_end_time = time.time()
-            
-        inference_time = infer_end_time - infer_start_time
-        
-        fps.stop()
-        
-        # Draw results
-        image = visualize(query_image, query_faces, matches, scores, fps.getFPS(), detection_time, inference_time)
-        
+            # for target_face in target_faces:
+            #     result = recognizer.match(target_images[0], target_faces[0][:-1], query_image, query_face[-1])
+            #     index += 1
+            #     scores.append(result[0])
+            #     matches.append(result[1])
+            #     #print('Score:', scores[-1], 'Match:', matches[-1])
+                
+            infer_end_time = time.time()
+            inference_time = infer_end_time - infer_start_time
+            fps.stop()
+
+                # Draw results
+            image = visualize(query_image, query_faces, matches, scores, fps.getFPS(), inference_time)
+
         if get_os() == "Linux":
             output.write(image)
         elif get_os() == "Windows":
