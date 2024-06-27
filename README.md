@@ -6,6 +6,7 @@ A self-hosted, quick, light weight and real-time camera monitoring application w
 * **archived_code/v2:**   Face detection using Haar cascades from OpenCV
 * **archived_code/v3:**   Face detection using YuNet with options to pass in either a still image or a video with a matching output including detection visualisation
 * **sface_recognition branch:**     Face detection and recognition using YuNet and SFace with video output including ~~basic~~ recognition visualisation. Code also runs either in Windows with windowed real-time output or in a docker container with saved .mp4 video output.
+* **main branch:**  Merged above branch back into main and am staying here for a little while.
 
 ### To Do
 The ever chaning goal posts!
@@ -13,10 +14,10 @@ The ever chaning goal posts!
 - [x] Add more recognition visualisation data to the output video :beers:
 - [x] Implement checks and corrections to target image size to optimise for YuNet detection model
 - [x] Implement code to look up and filter target image files stored in a collation/person folder structure
-- [ ] Update the detection code to use the collation/person/target file list
+- [x] Update the detection code to use the collation/person/target file list
 - [ ] Make code more readable with useful comments and by using functions and/or seperate .py files as needed
 - [ ] Consider better way to integrate opencv_zoo repo to access YuNet and Sface dynamically rather than keeping static files seperately
-- [ ] Parse detection and recognition outputs into more human readable text
+- [x] Parse detection and recognition outputs into more human readable text
 - [ ] Implementing appropriate Threading
 - [ ] Review benefits case of pure OpenCL given early observations on gains/costs
 - [ ] Short validation tests and benefits case review of using the OpenVINO (cv.dnn.DNN_BACKEND_INFERENCE_ENGINE) backend with an appropriately prepared docker image
@@ -41,8 +42,8 @@ Lastly load and execution time of the programmed was different; measured on my c
 
 **_UPDATE_** Enter the world of OpenCL Kernel tuning, setting an environment variable called OPENCV_OCL4DNN_CONFIG_PATH to a permanent directory and starting the container causes Opencl to start auto-tuning against my specific hardware.  The directory specificied in the environment variable gets populated with tuning configuration data.  Running the container post autotuning reduces the initial program load & execution time by 50% in my testing!
 
-### Fair warning
-I'm very much learning and have little experience with opencv, python & coding in general.  Any advice e.g. "read up on this..." or "check this code/link out..." is welcomed!
+## Fair warning
+This is an "I'm learning Python, OpenCV and some associated tools" project, I'm certain that all of what I've done/am doing/plan to-do has already been done elsewhere and to a significantly better standard.  Check out some of the repos credited below rather than take my code ;-)
 
 ### Credits (great projects, code and general inspiration)
 * https://github.com/AlexxIT/go2rtc
@@ -51,3 +52,4 @@ I'm very much learning and have little experience with opencv, python & coding i
 * https://github.com/opencv/opencv_zoo/tree/main/models/face_detection_yunet
 * https://github.com/opencv/opencv_zoo/tree/main/models/face_recognition_sface
 * https://github.com/ShiqiYu/libfacedetection
+* https://github.com/serengil/deepface
