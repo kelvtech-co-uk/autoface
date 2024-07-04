@@ -6,6 +6,8 @@ import platform
 import datetime
 import time
 import os
+import multiprocessing
+import threading
 from PIL import ExifTags
 
 # Update the path variable to include addition module sub-directories
@@ -83,26 +85,29 @@ def draw_text(image,
 
     return
 
-def decorate(image, queries, fps, inference_time):
+def decorate_frames(image, queries, fps, run_detrec, inference_time):   
     # queries: 0=face data, 1=match, 2=score, 3=target member
     matched_box_color = (0, 255, 0)    # BGR
     mismatched_box_color = (0, 0, 255) # BGR
 
-    draw_text(query_image, text=f"{datetime.datetime.now():%Y-%m-%d %H:%M:%S}", pos=(0, 10))
-    draw_text(image, text='{:.1}'.format(str(fps)) + ' fps', pos=(0, 22))
-    draw_text(image, text='Inference: ' + '{:.2}'.format(inference_time) + 'ms', pos=(0, 34))
+    draw_text(image, text=f'{datetime.datetime.now():%Y-%m-%d %H:%M:%S}', pos=(0, 32))
+    draw_text(image,'FPS: ' + f'{fps:.1f}', pos=(0, 44))
+    
+    if run_detrec:
+        # draw_text(image, 'Inference: ' + '{:.4}'.format(inference_time) + 'ms', pos=(0, 56))
+        draw_text(image, 'Inference time (ms): ' + f'{inference_time:.1f}', pos=(0, 56))
 
-    for query in queries:
-        detection_confidence = query[0][14]
-        bbox = query[0][0:4]
-        x, y, w, h = bbox.astype(np.int32)
-        match = query[1]
-        box_color = matched_box_color if match else mismatched_box_color
-        
-        cv.rectangle(image, (x, y), (x + w, y + h), box_color, 2)
-        draw_text(image, text= '{:.2%}'.format(detection_confidence), pos=((x + 2), (y + 12)))
-        if match == 1:
-            draw_text(image, text='{:.2%}'.format(query[2]) + ' ' + query[3], pos=((x + 2), (y + 24)))
+        for query in queries:
+            detection_confidence = query[0][14]
+            bbox = query[0][0:4]
+            x, y, w, h = bbox.astype(np.int32)
+            match = query[1]
+            box_color = matched_box_color if match else mismatched_box_color
+            
+            cv.rectangle(image, (x, y), (x + w, y + h), box_color, 2)
+            draw_text(image, f'{detection_confidence:.1%}', pos=((x + 2), (y + 12)))
+            if match == 1:
+                draw_text(image, f'{query[2]:.1%}' + ' ' + query[3], pos=((x + 2), (y + 24)))
 
     return image
 
@@ -147,67 +152,13 @@ def build_targets():
     
     return targets
 
-def frameTypeWebcam():
-    query_source = cv.VideoCapture(0)
-    # query_source_width = int(query_source.get(cv.CAP_PROP_FRAME_WIDTH))
-    # query_source_height = int(query_source.get(cv.CAP_PROP_FRAME_HEIGHT))
-
-    return query_source
-
-def frameTypeRTSP():
-    #query_source_url = "rtsp://192.168.1.99:8554/blackprostation"
-    query_source_url = "rtsp://localhost:8554/boys_low"
-    query_source = cv.VideoCapture(query_source_url)
-    # query_source_width = int(query_source.get(cv.CAP_PROP_FRAME_WIDTH))
-    # query_source_height = int(query_source.get(cv.CAP_PROP_FRAME_HEIGHT))
-
-    return query_source
-
-def frameTypeVideo():
-    query_source_url = "event.mp4"
-    query_source = cv.VideoCapture(query_source_url)
-
-    return query_source
-
-def frameTypeImageRead():
-    query_source = 'family.jpg'
-    query_image = cv.imread(query_source)
-    query_image = resize_image(query_image, 1000)
-
-    return query_image
-
-def frameRead(query_source):
-    hasFrame, query_image = query_source.read()
-    if not hasFrame:
-        failFrame += 1
-        if failFrame == 30:
-            raise Exception('Failed to grab a frame after {failFrame} consequtive tries')
-    else:
-        failFrame = 0 
-
-    return query_image
-
-print('Running in ', get_os())
-targets = build_targets()  
-query_source = frameTypeRTSP()
-
-fps = cv.TickMeter()
-frame_skip = 3
-failFrame = 0
-
-while True:
+def detection_recognition(query_image, run_detrec):
     queries = []
-
-    fps.start()
-    query_image = frameRead(query_source)
-    cv.imshow('query_source', query_image)
-    #query_image = frameTypeImageRead()
-    
     # Attempt to detect faces
     infer_start_time = time.time()
     detector.setInputSize([query_image.shape[1], query_image.shape[0]]) 
     faces = detector.infer(query_image)
-
+   
     for f_index, face in enumerate(faces):
         queries.insert(f_index, [face, None, None, None])
         for target in targets:
@@ -221,24 +172,83 @@ while True:
                 if queries[f_index][2] is None or score > queries[f_index][2]:
                     queries.pop(f_index)
                     queries.insert(f_index, [face, result[1], score, target[1]])
-
-    infer_end_time = time.time()
-    inference_time = infer_end_time - infer_start_time
-    fps.stop()
     
+    infer_end_time = time.time()
+    inference_time = (infer_end_time - infer_start_time) * 1000     # time in miliseconds
+    fps.stop()
+
     # Draw results
-    decorated_image = decorate(query_image, queries, fps.getFPS(), inference_time)
+    decorated_image = decorate_frames(query_image, queries, fps.getFPS(), run_detrec, inference_time)
 
     cv.imshow('autoface', decorated_image)
-    if cv.waitKey(1) == ord('q'):
-        break
 
-cv.destroyAllWindows()
-query_source.release()
+    return
 
-print('\nProgram exited')
+def grab_frames(run_detrec):
+    global fps      # Currently needed becasue the tracking FPS extends into the detection_recognition function, if this was all in 1 class would this be needed?
+    fps = cv.TickMeter()
+    failFrame = 0
+    while True:
+        fps.start()
+        hasFrame, query_image = query_source.read()
+        if not hasFrame:
+            failFrame += 1
+            if failFrame == 15:
+                raise Exception('Failed to grab a frame after {failFrame} consequtive tries')
+            continue
+        else:
+            failFrame = 0 
 
+        if run_detrec:
+            detection_recognition(query_image, run_detrec)
+        else:
+            fps.stop()
+            decorated_image = decorate_frames(query_image, None, fps.getFPS(), run_detrec, None)
+            cv.imshow('autoface', decorated_image)
 
+        if cv.waitKey(1) == ord('q'):
+            break
 
+def open_source(source):
+    match source:
+        case 'cam':
+            source_url = 0
+            apiPref = cv.CAP_DSHOW
+        case 'boysr':
+            source_url = 'rtsps://192.168.1.1:7441/xhw7D6R7BR8NP5vg'
+            apiPref = cv.CAP_FFMPEG
+        case 'frontd':   
+            source_url = 'rtsps://192.168.1.1:7441/EOEohGh0eoXIWf28'
+            apiPref = cv.CAP_FFMPEG
+        case 'video':
+            source_url = 'event.mp4'
+            apiPref = cv.CAP_FFMPEG
 
+    source = cv.VideoCapture(source_url, apiPref)
+    source.set(cv.CAP_PROP_BUFFERSIZE, 1)
+    source.set(cv.CAP_PROP_FPS, 20)
+    
+    if source.isOpened():
+        print('Query source successfully opened.')
+    else:
+        raise Exception('Unable to open query source')
 
+    return source
+
+if __name__ == '__main__':
+    print('Running in ', get_os())
+    print('Number of cpus', multiprocessing.cpu_count())
+
+    targets = build_targets()
+    query_source = open_source('cam')
+    grab_frames(run_detrec = True)
+
+    cv.destroyAllWindows()
+    if query_source.isOpened():
+        query_source.release()
+        print('\nQuery source released')
+
+    print('\nProgram exited')
+
+# consider scene detections i.e. short periods of time where recognised faces are listed on the frame, say for 60 seconds and then reset until a subsequent detection.
+# also here consider a cool-down period between scenes.  This can ultimately build into the events being fired back to HA and NR.
