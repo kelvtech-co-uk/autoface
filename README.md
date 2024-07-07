@@ -18,7 +18,7 @@ The ever chaning goal posts!
 - [ ] Make code more readable with useful comments and by using functions and/or seperate .py files as needed
 - [ ] Consider better way to integrate opencv_zoo repo to access YuNet and Sface dynamically rather than keeping static files seperately
 - [x] Parse detection and recognition outputs into more human readable text
-- [ ] Implementing appropriate Threading
+- [ ] Implementing appropriate Threading and/or Multiprocessing.
 - [ ] Review benefits case of pure OpenCL given early observations on gains/costs
 - [ ] Short validation tests and benefits case review of using the OpenVINO (cv.dnn.DNN_BACKEND_INFERENCE_ENGINE) backend with an appropriately prepared docker image
 - [ ] Implement API and/or MQTT wrapper considering integration with the Home Assistant and Node Red projects
