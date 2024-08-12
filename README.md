@@ -27,7 +27,7 @@ The ever chaning goal posts!
 My dev environment uses a USB Logitech Brio webcam on my workstation streamed into my container host/container using a great project credited below called go2rtc.  I'm very much looking to keep this small and lightweight and will optimise the processing overheads as best I can.  My end-state usecase is to process either jpeg snapshots or an rtsp feed from my Unifi G4 Doorbell camera for person and face detection and ultimately recogition.  I want to integrate this with Home Assistant and/or Node-Red to onward process the recognition output into events and alerts with my vairous IoT devices.
 
 ### Observations
-My container host is an unraid server with a Intel Core i5-14500.  I have a USB connected PSU where unraid is polling the bus and reporting various stats including current power draw.  The table below is an early data capture of the code run cost.
+My container host is an unraid server with a Intel Core i5-14500.  I have a USB connected UPS where unraid is polling the bus and reporting various stats including current power draw.  The table below is an early data capture of the code run cost.
 | Power (watts) | Scenario |
 | --- | --- |
 | 76w | Container host baseline |

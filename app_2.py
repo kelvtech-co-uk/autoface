@@ -6,8 +6,7 @@ import platform
 import datetime
 import time
 import os
-import multiprocessing
-import psutil
+import multiprocessing as mp
 import threading
 from PIL import ExifTags
 
@@ -69,7 +68,7 @@ def resize_image(target_image, target_width):
     
     return cv.resize(target_image, (target_width, target_height), interpolation=cv.INTER_LANCZOS4)
 
-def decorate_frames(image, queries, fps, run_detrec, inference_time):   
+def decorate_frames(image, queries, fps, inference_time):   
     # queries: 0=face data, 1=match, 2=score, 3=target member
     matched_box_color = (0, 255, 0)    # BGR
     mismatched_box_color = (0, 0, 255) # BGR
@@ -81,7 +80,7 @@ def decorate_frames(image, queries, fps, run_detrec, inference_time):
                 text_color=(255, 255, 255), 
                 font_thickness=1, 
                 text_color_bg=(0, 0, 0), 
-                border=1):      # Adding as a nested function within decorate_frames removes an image copy as the nested function can write to the image object of the parent function.
+                border=1): # Adding as a nested function within decorate_frames removes an image copy as the nested function can write to the image object of the parent function.
         x, y = pos
         text_size, _ = cv.getTextSize(text, font, font_scale, font_thickness)
         text_w, text_h = text_size
@@ -89,24 +88,22 @@ def decorate_frames(image, queries, fps, run_detrec, inference_time):
         cv.putText(image, text, (x, y), font, font_scale, text_color, font_thickness)
 
         return
-
+    
     draw_text(f'{datetime.datetime.now():%Y-%m-%d %H:%M:%S}', pos=(0, 32))
     draw_text('FPS: ' + f'{fps:.1f}', pos=(0, 44))
-    
-    if run_detrec:
-        draw_text('Inference time (ms): ' + f'{inference_time:.1f}', pos=(0, 56))
+    draw_text('Inference time (ms): ' + f'{inference_time:.1f}', pos=(0, 56))
 
-        for query in queries:
-            detection_confidence = query[0][14]
-            bbox = query[0][0:4]
-            x, y, w, h = bbox.astype(np.int32)
-            match = query[1]
-            box_color = matched_box_color if match else mismatched_box_color
-            
-            cv.rectangle(image, (x, y), (x + w, y + h), box_color, 2)
-            draw_text(f'{detection_confidence:.1%}', pos=((x + 2), (y + 12)))
-            if match == 1:
-                draw_text( f'{query[2]:.1%}' + ' ' + query[3], pos=((x + 2), (y + 24)))
+    for query in queries:
+        detection_confidence = query[0][14]
+        bbox = query[0][0:4]
+        x, y, w, h = bbox.astype(np.int32)
+        match = query[1]
+        box_color = matched_box_color if match else mismatched_box_color
+        
+        cv.rectangle(image, (x, y), (x + w, y + h), box_color, 2)
+        draw_text(f'{detection_confidence:.1%}', pos=((x + 2), (y + 12)))
+        if match == 1:
+            draw_text(f'{query[2]:.1%}' + ' ' + query[3], pos=((x + 2), (y + 24)))
 
     return image
 
@@ -151,11 +148,11 @@ def build_targets():
     
     return targets
 
-def detection_recognition(query_image, run_detrec):
+def detection_recognition(query_image):
     queries = []
     # Attempt to detect faces
     infer_start_time = time.time()
-    detector.setInputSize([query_image.shape[1], query_image.shape[0]]) 
+    detector.setInputSize([query_image.shape[1], query_image.shape[0]])
     faces = detector.infer(query_image)
    
     for f_index, face in enumerate(faces):
@@ -177,77 +174,101 @@ def detection_recognition(query_image, run_detrec):
     fps.stop()
 
     # Draw results
-    decorated_image = decorate_frames(query_image, queries, fps.getFPS(), run_detrec, inference_time)
+    decorated_image = decorate_frames(query_image, queries, fps.getFPS(), inference_time)
 
-    cv.imshow('autoface', decorated_image)
+    return decorated_image
 
-    return
+class Camera(object):
+    def __init__(self, source):
+        self._source = source
+        self._capture_queue = mp.Queue()
+        self._decorated_queue = mp.Queue()
 
-def grab_frames(run_detrec):
-    global fps      # Currently needed becasue the tracking FPS extends into the detection_recognition function, if this was all in 1 class would this be needed?
-    fps = cv.TickMeter()
-    failFrame = 0
-    while True:
-        fps.start()
-        hasFrame, query_image = query_source.read()
-        if not hasFrame:
-            failFrame += 1
-            if failFrame == 15:
-                raise Exception('Failed to grab a frame after {failFrame} consequtive tries')
-            continue
-        else:
-            failFrame = 0 
-
-        if run_detrec:
-            detection_recognition(query_image, run_detrec)
-        else:
-            fps.stop()
-            decorated_image = decorate_frames(query_image, None, fps.getFPS(), run_detrec, None)
-            cv.imshow('autoface', decorated_image)
-
-        if cv.waitKey(1) == ord('q'):
-            break
-
-def open_source(source):
-    match source:
-        case 'cam':
-            source_url = 0
-            apiPref = cv.CAP_DSHOW
-        case 'boysr':
-            source_url = 'rtsps://192.168.1.1:7441/xhw7D6R7BR8NP5vg'
-            apiPref = cv.CAP_FFMPEG
-        case 'frontd':   
-            source_url = 'rtsps://192.168.1.1:7441/EOEohGh0eoXIWf28'
-            apiPref = cv.CAP_FFMPEG
-        case 'video':
-            source_url = 'event.mp4'
-            apiPref = cv.CAP_FFMPEG
-
-    source = cv.VideoCapture(source_url, apiPref)
-    source.set(cv.CAP_PROP_BUFFERSIZE, 1)
-    source.set(cv.CAP_PROP_FPS, 20)
+        match self._source:
+            case 'cam':
+                self._source_url = 0
+                self._apiPref = cv.CAP_DSHOW
+            case 'boysr':
+                self._source_url = 'rtsps://192.168.1.1:7441/xhw7D6R7BR8NP5vg'
+                self._apiPref = cv.CAP_FFMPEG
+            case 'frontd':   
+                self._source_url = 'rtsps://192.168.1.1:7441/EOEohGh0eoXIWf28'
+                self._apiPref = cv.CAP_FFMPEG
+            case 'video':
+                self._source_url = 'event.mp4'
+                self._apiPref = cv.CAP_FFMPEG
     
-    if source.isOpened():
-        print('Query source successfully opened.')
-    else:
-        raise Exception('Unable to open query source')
+    def read_frames(self, _capture_queue, quit_read_frame):
+        self._capture_source = cv.VideoCapture(self._source_url, self._apiPref)
+        self._capture_source.set(cv.CAP_PROP_BUFFERSIZE, 1)
+        self._capture_source.set(cv.CAP_PROP_FPS, 20)
 
-    return source
+        if self._capture_source.isOpened():
+            print('Capture object successfully started')
+        else:
+            raise Exception('Unable to start capture object')
+
+        _failFrame = 0
+        while not quit_read_frame.is_set():
+            _hasFrame, _capture_image = self._capture_source.read()
+            _capture_queue.put(_capture_image)
+            if not _hasFrame:
+                _failFrame += 1
+                if _failFrame == 15:
+                    raise Exception(f"Failed to grab a frame after {_failFrame} consequtive tries")
+                continue
+            else:
+                _failFrame = 0
+                
+                global fps      # Currently needed becasue the tracking FPS extends into the detection_recognition function, if this was all in 1 class would this be needed?
+                fps = cv.TickMeter()
+
+                # if run_detrec:
+                #     _decorated_image = detection_recognition(_capture_image, run_detrec)
+ 
+                #     self._decorated_queue.put(_decorated_image)
+                # else:
+                #     fps.stop()
+                #     self._decorated_queue.put(decorate_frames(_capture_image, None, fps.getFPS(), run_detrec, None))
+
+        self._capture_source.release()
+        self._capture_queue.cancel_join_thread()
+        self._decorated_queue.cancel_join_thread()
+
+    def show_frame(self, _decorated_queue):
+        while True:
+            cv.imshow('autoface', _decorated_queue.get())
+            if cv.waitKey(1) == ord('q'):
+                cv.destroyAllWindows()
+                break
 
 if __name__ == '__main__':
     print('Running in ', get_os())
-    print('Number of cpus', multiprocessing.cpu_count())
-    print('Virtual memory', psutil.virtual_memory())
-
+    print('Number of cpus', mp.cpu_count())
+    
     targets = build_targets()
-    query_source = open_source('cam')
-    grab_frames(run_detrec = True)
+    
+    print('Starting capture object')
+    capture = Camera('cam')
 
-    cv.destroyAllWindows()
-    if query_source.isOpened():
-        query_source.release()
-        print('\nQuery source released')
+    # Create the event to use to stop the program
+    quit_read_frame = mp.Event()
 
+    print('Starting read_frames process')
+    capture_read_frame_process = mp.Process(target=capture.read_frames, args=(capture._capture_queue, quit_read_frame,))
+    capture_read_frame_process.start()
+    
+    print('Starting show_frames process')
+    capture_show_frame_process = mp.Process(target=capture.show_frame, args=(capture._decorated_queue,))
+    capture_show_frame_process.start()
+
+    
+    capture_show_frame_process.join()   # Should complete when 'q' is typed when the cv.imshow window is open and active.
+    
+    print('Program exiting')
+    quit_read_frame.set()     # This should then break the loop in the read_frames function of the Camera object
+    capture_read_frame_process.join()   # This should then exit as the queue.cancel_join_thread() method has been called breaking the queue/process dependency for flushing
+    
     print('\nProgram exited')
 
 # consider scene detections i.e. short periods of time where recognised faces are listed on the frame, say for 60 seconds and then reset until a subsequent detection.
